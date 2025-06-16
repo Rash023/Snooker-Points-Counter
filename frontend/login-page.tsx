@@ -67,7 +67,7 @@ export default function LoginPage({ onLogin, onGoToSignup }: LoginPageProps) {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Snooker Counter</h1>
-          <p className="text-gray-600">Track your snooker games with precision</p>
+          <p className="text-gray-600">Created By Rashid Mazhar</p>
         </div>
 
         {/* Login Form */}

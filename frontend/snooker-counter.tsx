@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { RotateCcw, Plus, Minus, Edit, Users, Home, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface SnookerCounterProps {
-  initialGame?: Game
+  initialGame?: Game | null
   onBackToDashboard?: () => void
 }
 
