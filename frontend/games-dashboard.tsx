@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,19 +22,13 @@ import { Plus, Trash2, Play, Users, Calendar, Trophy } from "lucide-react"
 interface Player {
   id: string
   name: string
-  score: number
-  currentBreak: number
-  highestBreak: number
+  points: number
 }
 
 interface Game {
   id: string
-  gameNumber: number
+  gameNo: number
   players: Player[]
-  currentPlayerIndex: number
-  createdAt: Date
-  status: "active" | "completed"
-  winner?: string
 }
 
 interface GamesDashboardProps {
@@ -42,36 +36,34 @@ interface GamesDashboardProps {
 }
 
 export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
-  const [games, setGames] = useState<Game[]>([
-    {
-      id: "1",
-      gameNumber: 1,
-      players: [
-        { id: "1", name: "Player 1", score: 45, currentBreak: 0, highestBreak: 23 },
-        { id: "2", name: "Player 2", score: 32, currentBreak: 0, highestBreak: 18 },
-      ],
-      currentPlayerIndex: 0,
-      createdAt: new Date(),
-      status: "active",
-    },
-    {
-      id: "2",
-      gameNumber: 2,
-      players: [
-        { id: "3", name: "Alice", score: 67, currentBreak: 0, highestBreak: 34 },
-        { id: "4", name: "Bob", score: 89, currentBreak: 0, highestBreak: 42 },
-        { id: "5", name: "Charlie", score: 23, currentBreak: 0, highestBreak: 15 },
-      ],
-      currentPlayerIndex: 1,
-      createdAt: new Date(Date.now() - 86400000), // 1 day ago
-      status: "completed",
-      winner: "Bob",
-    },
-  ])
-
+  const [games, setGames] = useState<Game[]>([])
+  const [loading, setLoading] = useState(true)
   const [isCreateGameOpen, setIsCreateGameOpen] = useState(false)
   const [newGamePlayers, setNewGamePlayers] = useState<string[]>(["", ""])
   const [gameToDelete, setGameToDelete] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/allGames`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) throw new Error("Failed to fetch games");
+        const json = await res.json();
+        console.log("API response:", json);
+        setGames(json.games); // ✅ make sure this matches the actual structure
+      } catch (error) {
+        console.error("Error fetching games:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGames();
+  }, []);
 
   const addPlayerField = () => {
     setNewGamePlayers([...newGamePlayers, ""])
@@ -89,32 +81,37 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
     setNewGamePlayers(updated)
   }
 
-  const createGame = () => {
-    const validPlayers = newGamePlayers.filter((name) => name.trim() !== "")
-    if (validPlayers.length < 2) {
-      alert("Please add at least 2 players")
-      return
-    }
-
-    const newGame: Game = {
-      id: Date.now().toString(),
-      gameNumber: Math.max(...games.map((g) => g.gameNumber), 0) + 1,
-      players: validPlayers.map((name, index) => ({
-        id: `${Date.now()}-${index}`,
-        name: name.trim(),
-        score: 0,
-        currentBreak: 0,
-        highestBreak: 0,
-      })),
-      currentPlayerIndex: 0,
-      createdAt: new Date(),
-      status: "active",
-    }
-
-    setGames([newGame, ...games])
-    setNewGamePlayers(["", ""])
-    setIsCreateGameOpen(false)
+ const createGame = async () => {
+  const validPlayers = newGamePlayers.filter((name) => name.trim() !== "");
+  if (validPlayers.length < 2) {
+    alert("Please add at least 2 players");
+    return;
   }
+
+  const token = localStorage.getItem("token");
+
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        players: validPlayers.map((name) => ({ name })),
+      }),
+    });
+
+    if (!res.ok) throw new Error("Failed to create game");
+
+
+    setNewGamePlayers(["", ""]);
+    setIsCreateGameOpen(false);
+  } catch (error) {
+    console.error("Error creating game:", error);
+    alert("Failed to create game");
+  }
+};
 
   const deleteGame = (gameId: string) => {
     setGames(games.filter((game) => game.id !== gameId))
@@ -122,18 +119,17 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
   }
 
   const getHighestScore = (players: Player[]) => {
-    return Math.max(...players.map((p) => p.score))
+    return Math.max(...players.map((p) => p.points))
   }
 
   const getWinner = (players: Player[]) => {
     const highestScore = getHighestScore(players)
-    const winners = players.filter((p) => p.score === highestScore)
+    const winners = players.filter((p) => p.points === highestScore)
     return winners.length === 1 ? winners[0].name : null
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -197,9 +193,14 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
         </div>
       </div>
 
-      {/* Games List */}
       <div className="max-w-6xl mx-auto p-4 space-y-4">
-        {games.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Loading games...
+            </CardContent>
+          </Card>
+        ) : games.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -219,64 +220,43 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <div className="text-center">
-                        <div className="text-2xl font-bold">#{game.gameNumber}</div>
+                        <div className="text-2xl font-bold">#{game.gameNo}</div>
                         <div className="text-xs text-muted-foreground">Game</div>
                       </div>
                       <div>
                         <CardTitle className="text-lg">{game.players.map((p) => p.name).join(" vs ")}</CardTitle>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Calendar className="w-4 h-4" />
-                          {game.createdAt.toLocaleDateString()}
                           <Users className="w-4 h-4 ml-2" />
                           {game.players.length} players
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={game.status === "active" ? "default" : "secondary"}>
-                        {game.status === "active" ? "Active" : "Completed"}
-                      </Badge>
-                      {game.winner && (
-                        <Badge variant="outline" className="text-green-600 border-green-600">
-                          Winner: {game.winner}
-                        </Badge>
-                      )}
-                    </div>
+                    
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {/* Player Scores */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                       {game.players.map((player, index) => (
                         <div
                           key={player.id}
-                          className={`p-3 rounded-lg border ${
-                            game.currentPlayerIndex === index && game.status === "active"
-                              ? "border-primary bg-primary/5"
-                              : "border-gray-200 bg-gray-50"
-                          }`}
+                          className={`p-3 rounded-lg border `}
                         >
                           <div className="text-sm font-medium truncate">{player.name}</div>
-                          <div className="text-xl font-bold">{player.score}</div>
-                          <div className="text-xs text-muted-foreground">Best: {player.highestBreak}</div>
-                          {game.currentPlayerIndex === index && game.status === "active" && (
-                            <Badge variant="default" className="text-xs mt-1">
-                              Current
-                            </Badge>
-                          )}
+                          <div className="text-xl font-bold">{player.points}</div>
+                          
                         </div>
                       ))}
                     </div>
 
-                    {/* Actions */}
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         onClick={() => onStartGame(game)}
                         className="flex-1 flex items-center justify-center gap-2"
                       >
                         <Play className="w-4 h-4" />
-                        {game.status === "active" ? "Continue Game" : "View Game"}
+                       
                       </Button>
 
                       <AlertDialog>
@@ -290,7 +270,7 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Game</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete Game #{game.gameNumber}? This action cannot be undone.
+                              Are you sure you want to delete Game #{game.gameNo}? This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

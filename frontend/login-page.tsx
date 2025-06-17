@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,24 +41,38 @@ export default function LoginPage({ onLogin, onGoToSignup }: LoginPageProps) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) {
-      return
-    }
-
+    if (!validateForm()) return
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ "email":email, "password":password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setIsLoading(false)
+        setErrors({ password: data.message || "Login failed" })
+        return
+      }
+
+      localStorage.setItem("token", data.token)
       onLogin()
-    }, 1000)
+    } catch (error) {
+      setErrors({ password: "Something went wrong. Please try again." })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Logo/Header */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center">
@@ -70,11 +83,12 @@ export default function LoginPage({ onLogin, onGoToSignup }: LoginPageProps) {
           <p className="text-gray-600">Created By Rashid Mazhar</p>
         </div>
 
-        {/* Login Form */}
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
-            <p className="text-sm text-muted-foreground text-center">Enter your credentials to access your games</p>
+            <p className="text-sm text-muted-foreground text-center">
+              Enter your credentials to access your games
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -142,7 +156,6 @@ export default function LoginPage({ onLogin, onGoToSignup }: LoginPageProps) {
           </CardContent>
         </Card>
 
-        {/* Sign up link */}
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{" "}
@@ -156,7 +169,6 @@ export default function LoginPage({ onLogin, onGoToSignup }: LoginPageProps) {
           </p>
         </div>
 
-        {/* Demo credentials */}
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="pt-4">
             <div className="text-center space-y-2">

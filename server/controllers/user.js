@@ -67,6 +67,7 @@ const loginSchema = z.object({
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log(email, password);
     const success = loginSchema.safeParse({ email, password });
     if (!success) {
       return res.status(400).json({

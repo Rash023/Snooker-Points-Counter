@@ -13,23 +13,18 @@ interface SnookerCounterProps {
   onBackToDashboard?: () => void
 }
 
-interface Game {
-  id: string
-  gameNumber: number
-  players: Player[]
-  currentPlayerIndex: number
-  createdAt: Date
-  status: "active" | "completed"
-  winner?: string
-}
-
 interface Player {
   id: string
   name: string
-  score: number
-  currentBreak: number
-  highestBreak: number
+  points: number
 }
+
+interface Game {
+  id: string
+  gameNo: number
+  players: Player[]
+}
+
 
 const ballValues = [
   { name: "Red", value: 1, color: "bg-red-500" },
@@ -44,12 +39,12 @@ const ballValues = [
 export default function SnookerCounter({ initialGame, onBackToDashboard }: SnookerCounterProps = {}) {
   const [players, setPlayers] = useState<Player[]>(
     initialGame?.players || [
-      { id: "1", name: "Player 1", score: 0, currentBreak: 0, highestBreak: 0 },
-      { id: "2", name: "Player 2", score: 0, currentBreak: 0, highestBreak: 0 },
+      { id: "1", name: "Player 1",points: 0 },
+      { id: "2", name: "Player 2", points: 0},
     ],
   )
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(initialGame?.currentPlayerIndex || 0)
-  const [gameNumber, setGameNumber] = useState(initialGame?.gameNumber || 1)
+  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0)
+  const [gameNumber, setGameNumber] = useState(initialGame?.gameNo || 1)
   const [newPlayerName, setNewPlayerName] = useState("")
   const [editingPlayer, setEditingPlayer] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
@@ -63,28 +58,40 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
   ]
 
   const applyFoulPenalty = (points: number) => {
-    setPlayers((prev) =>
-      prev.map((player, index) => {
-        if (index === currentPlayerIndex) {
-          return {
-            ...player,
-            score: Math.max(0, player.score + points),
-            currentBreak: 0,
-          }
-        }
-        return player
-      }),
-    )
+    const current=players[currentPlayerIndex];
+    let bonus=0;
+    if(current.points+points<0){
+      bonus=current.points+points;
+      current.points=0;
+
+    }
+     setPlayers((prev) =>
+    prev.map((player, index) => {
+      if (index === currentPlayerIndex) {
+        const newPoints = Math.max(0, player.points + points);
+        return {
+          ...player,
+          points: newPoints,
+          currentBreak: newPoints,
+        };
+      } else {
+        return {
+          ...player,
+          points: player.points - bonus, // bonus is negative, so this subtracts it
+        };
+      }
+    })
+  );
   }
+
 
   const addPlayer = () => {
     if (newPlayerName.trim()) {
       const newPlayer: Player = {
         id: Date.now().toString(),
         name: newPlayerName.trim(),
-        score: 0,
-        currentBreak: 0,
-        highestBreak: 0,
+        points: 0,
+        
       }
       setPlayers([...players, newPlayer])
       setNewPlayerName("")
@@ -116,12 +123,12 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
     setPlayers((prev) =>
       prev.map((player, index) => {
         if (index === currentPlayerIndex) {
-          const newCurrentBreak = player.currentBreak + points
+          const newCurrentBreak = player.points + points
           return {
             ...player,
-            score: player.score + points,
+            points: player.points + points,
             currentBreak: newCurrentBreak,
-            highestBreak: Math.max(player.highestBreak, newCurrentBreak),
+            
           }
         }
         return player
@@ -155,8 +162,7 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
 
   const resetAllPlayers = () => {
     setPlayers([
-      { id: "1", name: "Player 1", score: 0, currentBreak: 0, highestBreak: 0 },
-      { id: "2", name: "Player 2", score: 0, currentBreak: 0, highestBreak: 0 },
+      
     ])
     setCurrentPlayerIndex(0)
     setGameNumber(1)
@@ -167,13 +173,46 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
     setGameNumber((prev) => prev + 1)
   }
 
-  const goToHomepage = () => {
-    if (onBackToDashboard) {
-      onBackToDashboard()
-    } else {
-      alert("Going back to homepage...")
+  const goToHomepage = async () => {
+  const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/game/updateScore`;
+  const token = localStorage.getItem("token");
+
+  const body = {
+    gameNo: gameNumber.toString(),
+    players: players.map(p => ({
+      name: p.name,
+      points: p.points.toString(),
+    })),
+  };
+
+  console.log(body)
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // Add token to the header
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update score");
     }
+
+    console.log("Score updated successfully");
+
+    if (onBackToDashboard) {
+      onBackToDashboard();
+    } else {
+      alert("Going back to homepage...");
+    }
+  } catch (error) {
+    console.error("Error updating score:", error);
+    alert("Failed to update score. Please try again.");
   }
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -282,24 +321,14 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
         <Card>
           <CardContent className="py-2 sm:py-4">
             <div className="flex items-center justify-center gap-2 sm:gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setGameNumber(Math.max(1, gameNumber - 1))}
-                disabled={gameNumber <= 1}
-                className="h-8 sm:h-10"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
+              
 
               <div className="text-center">
-                <div className="text-xl sm:text-3xl font-bold">Game {gameNumber}</div>
+                <div className="text-xl sm:text-3xl font-bold">#{initialGame?.gameNo}</div>
                 <div className="text-xs text-muted-foreground">Current Frame</div>
               </div>
 
-              <Button variant="outline" size="sm" onClick={() => setGameNumber(gameNumber + 1)} className="h-8 sm:h-10">
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+              
             </div>
           </CardContent>
         </Card>
@@ -316,18 +345,11 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
               <CardContent className="py-2 sm:py-4">
                 <div className="space-y-1 sm:space-y-3">
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{player.score}</div>
+                    <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{player.points}</div>
                     <div className="text-xs text-muted-foreground">Total Score</div>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <div>
-                      <div className="font-medium">Current Break</div>
-                      <div className="text-sm sm:text-base">{player.currentBreak}</div>
-                    </div>
-                    <div>
-                      <div className="font-medium">Highest Break</div>
-                      <div className="text-sm sm:text-base">{player.highestBreak}</div>
-                    </div>
+                    
                   </div>
                   {currentPlayerIndex === index && (
                     <Badge variant="default" className="w-full justify-center text-xs">
@@ -354,18 +376,11 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
             <CardContent className="py-2">
               <div className="space-y-1">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{players[currentPlayerIndex]?.score}</div>
+                  <div className="text-2xl font-bold">{players[currentPlayerIndex]?.points}</div>
                   <div className="text-xs text-muted-foreground">Total Score</div>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <div>
-                    <div className="font-medium">Current Break</div>
-                    <div className="text-sm">{players[currentPlayerIndex]?.currentBreak}</div>
-                  </div>
-                  <div>
-                    <div className="font-medium">Highest Break</div>
-                    <div className="text-sm">{players[currentPlayerIndex]?.highestBreak}</div>
-                  </div>
+                 
                 </div>
                 <Badge variant="default" className="w-full justify-center text-xs">
                   Current Player
@@ -387,7 +402,7 @@ export default function SnookerCounter({ initialGame, onBackToDashboard }: Snook
                   <div key={player.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-xs">
                     <span className={`truncate ${currentPlayerIndex === index ? "font-bold" : ""}`}>{player.name}</span>
                     <span className={`font-medium ${currentPlayerIndex === index ? "font-bold text-primary" : ""}`}>
-                      {player.score}
+                      {player.points}
                     </span>
                   </div>
                 ))}

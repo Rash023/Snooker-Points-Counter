@@ -9,19 +9,15 @@ import SnookerCounter from "../snooker-counter"
 interface Player {
   id: string
   name: string
-  score: number
-  currentBreak: number
-  highestBreak: number
+  points: number
+  
 }
 
 interface Game {
   id: string
-  gameNumber: number
+  gameNo: number
   players: Player[]
-  currentPlayerIndex: number
-  createdAt: Date
-  status: "active" | "completed"
-  winner?: string
+  
 }
 
 type AppView = "login" | "signup" | "dashboard" | "game"
