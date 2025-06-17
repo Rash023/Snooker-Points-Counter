@@ -16,8 +16,6 @@ interface SignupPageProps {
 
 export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -30,14 +28,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required"
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required"
-    }
 
     if (!formData.email) {
       newErrors.email = "Email is required"
@@ -69,7 +59,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
     }
@@ -84,11 +73,37 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
 
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setErrors((prev) => ({
+          ...prev,
+          email: data.message || "Signup failed",
+        }))
+      } else {
+        onSignup()
+      }
+    } catch (error) {
+      console.error("Signup error:", error)
+      setErrors((prev) => ({
+        ...prev,
+        email: "Something went wrong. Please try again.",
+      }))
+    } finally {
       setIsLoading(false)
-      onSignup()
-    }, 1500)
+    }
   }
 
   const getPasswordStrength = () => {
@@ -113,7 +128,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Back button */}
         <Button
           variant="ghost"
           onClick={onGoToLogin}
@@ -123,7 +137,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
           Back to login
         </Button>
 
-        {/* Logo/Header */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center">
@@ -131,10 +144,9 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Join Snooker Counter</h1>
-          <p className="text-gray-600">Create your account to start tracking games</p>
+          <p className="text-gray-600">Created By Rashid Mazhar</p>
         </div>
 
-        {/* Signup Form */}
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Create account</CardTitle>
@@ -142,32 +154,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    placeholder="John"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange("firstName", e.target.value)}
-                    className={errors.firstName ? "border-red-500" : ""}
-                  />
-                  {errors.firstName && <p className="text-sm text-red-500">{errors.firstName}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    placeholder="Doe"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange("lastName", e.target.value)}
-                    className={errors.lastName ? "border-red-500" : ""}
-                  />
-                  {errors.lastName && <p className="text-sm text-red-500">{errors.lastName}</p>}
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -207,7 +193,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
                   </Button>
                 </div>
 
-                {/* Password strength indicator */}
                 {formData.password && (
                   <div className="space-y-2">
                     <div className="flex gap-1">
@@ -272,8 +257,8 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
                         agreedToTerms
                           ? "bg-green-600 border-green-600"
                           : errors.terms
-                            ? "border-red-500"
-                            : "border-gray-300"
+                          ? "border-red-500"
+                          : "border-gray-300"
                       }`}
                       onClick={() => setAgreedToTerms(!agreedToTerms)}
                     >
@@ -301,7 +286,6 @@ export default function SignupPage({ onSignup, onGoToLogin }: SignupPageProps) {
           </CardContent>
         </Card>
 
-        {/* Login link */}
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Already have an account?{" "}

@@ -42,26 +42,25 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
   const [newGamePlayers, setNewGamePlayers] = useState<string[]>(["", ""])
   const [gameToDelete, setGameToDelete] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchGames = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/allGames`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) throw new Error("Failed to fetch games");
-        const json = await res.json();
-        console.log("API response:", json);
-        setGames(json.games); // ✅ make sure this matches the actual structure
-      } catch (error) {
-        console.error("Error fetching games:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchGames = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/allGames`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch games");
+      const json = await res.json();
+      setGames(json.games);
+    } catch (error) {
+      console.error("Error fetching games:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchGames();
   }, []);
 
@@ -81,42 +80,61 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
     setNewGamePlayers(updated)
   }
 
- const createGame = async () => {
-  const validPlayers = newGamePlayers.filter((name) => name.trim() !== "");
-  if (validPlayers.length < 2) {
-    alert("Please add at least 2 players");
-    return;
-  }
+  const createGame = async () => {
+    const validPlayers = newGamePlayers.filter((name) => name.trim() !== "");
+    if (validPlayers.length < 2) {
+      alert("Please add at least 2 players");
+      return;
+    }
 
-  const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
 
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        players: validPlayers.map((name) => ({ name })),
-      }),
-    });
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          players: validPlayers.map((name) => ({ name })),
+        }),
+      });
 
-    if (!res.ok) throw new Error("Failed to create game");
+      if (!res.ok) throw new Error("Failed to create game");
 
+      setNewGamePlayers(["", ""]);
+      setIsCreateGameOpen(false);
 
-    setNewGamePlayers(["", ""]);
-    setIsCreateGameOpen(false);
-  } catch (error) {
-    console.error("Error creating game:", error);
-    alert("Failed to create game");
-  }
-};
+      await fetchGames();
+    } catch (error) {
+      console.error("Error creating game:", error);
+      alert("Failed to create game");
+    }
+  };
 
-  const deleteGame = (gameId: string) => {
-    setGames(games.filter((game) => game.id !== gameId))
-    setGameToDelete(null)
-  }
+  const deleteGame = async (gameId: string, gameNo: number) => {
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/game/delete`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ gameNo }),
+      });
+
+      if (!res.ok) throw new Error("Failed to delete game");
+
+      await fetchGames();
+      setGameToDelete(null);
+    } catch (error) {
+      console.error("Error deleting game:", error);
+      alert("Failed to delete game");
+    }
+  };
 
   const getHighestScore = (players: Player[]) => {
     return Math.max(...players.map((p) => p.points))
@@ -232,20 +250,18 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
                         </div>
                       </div>
                     </div>
-                    
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {game.players.map((player, index) => (
+                      {game.players.map((player) => (
                         <div
                           key={player.id}
-                          className={`p-3 rounded-lg border `}
+                          className="p-3 rounded-lg border"
                         >
                           <div className="text-sm font-medium truncate">{player.name}</div>
                           <div className="text-xl font-bold">{player.points}</div>
-                          
                         </div>
                       ))}
                     </div>
@@ -256,7 +272,6 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
                         className="flex-1 flex items-center justify-center gap-2"
                       >
                         <Play className="w-4 h-4" />
-                       
                       </Button>
 
                       <AlertDialog>
@@ -276,7 +291,7 @@ export default function GamesDashboard({ onStartGame }: GamesDashboardProps) {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => deleteGame(game.id)}
+                              onClick={() => deleteGame(game.id, game.gameNo)}
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
                               Delete
