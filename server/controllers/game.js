@@ -97,7 +97,7 @@ exports.getAllGames = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      games: user.games,
+      games: user.games.reverse(),
     });
   } catch (err) {
     console.error("Error fetching games:", err);
